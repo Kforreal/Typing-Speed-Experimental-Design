@@ -1,0 +1,161 @@
+---
+title: "STAT 430 Project"
+author: "Chang"
+date: "2026-07-17"
+output: html_document
+---
+
+```{r, echo=FALSE,warning=FALSE}
+library(ggplot2)
+library(BsMD)
+library(tidyverse)
+```
+
+
+```{r}
+data <- read.csv(file = "D:/xyq/Waterloo/STAT430/TypingData.csv", header = T)
+
+data <- data %>%
+  mutate(
+    Block = factor(Block),
+    A = factor(A, levels = c(-1, 1), labels = c("Mechanical", "Apple")),      # Keyboard type
+    B = factor(B, levels = c(-1, 1), labels = c("Silent", "Music")),         # Background music
+    C = factor(C, levels = c(-1, 1), labels = c("Random", "Paragraph"))     # Text type
+  )
+```
+
+```{r}
+# --- Step 1: full model, testing block interactions ---------------------
+model_full <- aov(y ~ Block * A * B * C, data = data)
+summary(model_full)
+```
+
+```{r}
+# --- Step 2: if block interactions are non-significant, pool into error --
+model_reduced <- aov(y ~ Block + A * B * C, data = data)
+summary(model_reduced)
+```
+
+```{r}
+# --- Step 3: formally test whether pooling is justified ------------------
+anova(model_reduced, model_full)
+```
+```{r, fig.width=8, fig.height=5}
+boxplot(y ~ Block, data = data, xlab = "Participant", ylab = "WPM",
+        col = c("skyblue", "yellow","salmon"), main = "WPM by Block")
+```
+
+```{r, fig.width=15, fig.height=5}
+par(mfrow = c(1, 3))
+
+boxplot(y ~ A, data = data, xlab = "Keyboard (A)", ylab = "WPM",
+        col = c("skyblue", "salmon"), main = "WPM by Keyboard Type")
+
+boxplot(y ~ B, data = data, xlab = "Music (B)", ylab = "WPM",
+        col = c("lightgreen", "orange"), main = "WPM by Background Music")
+
+boxplot(y ~ C, data = data, xlab = "Text Type (C)", ylab = "WPM",
+        col = c("plum", "gold"), main = "WPM by Text Type")
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# check model assumptions
+par(mfrow = c(1, 3))
+
+hist(model_reduced$residuals, xlab = "Residuals",
+     main = "Histogram of Residuals", probability = TRUE)
+
+qqnorm(model_reduced$residuals)
+qqline(model_reduced$residuals)
+
+plot(x = model_reduced$fitted.values, y = model_reduced$residuals,
+     xlab = "Fitted Values", ylab = "Residuals",
+     main = "Residuals vs. Fitted Values")
+abline(h = 0)
+```
+
+```{r , fig.width=20, fig.height=5}
+# --- Step 5: visualize effects ---------------------------------------------
+par(mfrow = c(1, 3))
+
+interaction.plot(data$A, data$B, data$y, trace.label = "Music",
+                  xlab = "Keyboard", ylab = "WPM (y)",
+                  main = "Keyboard x Music", ylim = c(48,58))
+
+interaction.plot(data$A, data$C, data$y, trace.label = "Text Type",
+                  xlab = "Keyboard", ylab = "WPM (y)",
+                  main = "Keyboard x Text", ylim = c(48,58))
+
+interaction.plot(data$B, data$C, data$y, trace.label = "Text Type",
+                  xlab = "Music", ylab = "WPM (y)",
+                  main = "Music x Text", ylim = c(48,58))
+
+par(mfrow = c(1, 1))
+```
+
+
+```{r, fig.width=20, fig.height=5}
+
+# faceted by block, to eyeball whether patterns are consistent across blocks
+data %>%
+  group_by(Block, A, B) %>%
+  summarize(mean_y = mean(y), .groups = "drop") %>%
+  ggplot(aes(x = A, y = mean_y, color = B, group = B)) +
+  geom_point(size = 2) +
+  geom_line() +
+  facet_wrap(~Block) +
+  labs(y = "mean WPM", title = "A x B interaction by Block")
+```
+
+```{r, fig.width=20, fig.height=5}
+# --- 7. A x C interaction, faceted by Block ---------------------------------
+data %>%
+  group_by(Block, A, C) %>%
+  summarize(mean_y = mean(y), .groups = "drop") %>%
+  ggplot(aes(x = A, y = mean_y, color = C, group = C)) +
+  geom_point(size = 2) +
+  geom_line() +
+  facet_wrap(~Block) +
+  labs(y = "mean WPM", title = "A x C interaction by Block")
+```
+
+
+```{r, fig.width=20, fig.height=5}
+# --- 8. B x C interaction, faceted by Block ---------------------------------
+data %>%
+  group_by(Block, B, C) %>%
+  summarize(mean_y = mean(y), .groups = "drop") %>%
+  ggplot(aes(x = B, y = mean_y, color = C, group = C)) +
+  geom_point(size = 2) +
+  geom_line() +
+  facet_wrap(~Block) +
+  labs(y = "mean WPM", title = "B x C interaction by Block")
+```
+```{r, fig.width=12, fig.height=5}
+# --- Create a run order variable within each block --------------------------
+data <- data %>%
+  group_by(Block) %>%
+  mutate(RunOrder = row_number()) %>%
+  ungroup()
+
+# --- Run chart: WPM over run order, one line per block ----------------------
+ggplot(data, aes(x = RunOrder, y = y)) +
+  geom_line(color = "steelblue") +
+  geom_point(size = 2, color = "steelblue") +
+  facet_wrap(~Block) +
+  labs(x = "Run Order", y = "WPM",
+       title = "WPM by Run Order, Faceted by Block") +
+  theme_minimal()
+```
+
+```{r, fig.width=12, fig.height=5}
+ggplot(data, aes(x = RunOrder, y = y, color = A, group = A)) +
+  geom_line() +
+  geom_point(size = 2) +
+  facet_wrap(~Block) +
+  labs(x = "Run Order", y = "WPM", color = "Keyboard",
+       title = "WPM by Run Order, Faceted by Block, Colored by Keyboard (A)") +
+  theme_minimal()
+```

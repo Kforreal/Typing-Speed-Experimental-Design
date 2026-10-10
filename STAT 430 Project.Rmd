@@ -13,7 +13,7 @@ library(tidyverse)
 
 
 ```{r}
-data <- read.csv(file = "D:/xyq/Waterloo/STAT430/TypingData.csv", header = T)
+data <- read.csv("TypingData.csv", header = TRUE)
 
 data <- data %>%
   mutate(
